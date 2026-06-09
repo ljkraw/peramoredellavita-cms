@@ -76,10 +76,10 @@ jobs:
           SSH_PORT="${PORT:-22}"
           SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
 
-          # Load .env file from VPS then run script
+          # Debug: check if .env exists and load it
           RESULT="$(
             ssh $SSH_BASE_OPTS "$USER@$HOST" \
-              "cd '$APP_DIR' && set -a && source .env 2>/dev/null && set +a && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
+              "cd '$APP_DIR' && ls -la .env 2>/dev/null && set -a && source .env 2>/dev/null && set +a && echo 'DATABASE_URL loaded:' && echo \$DATABASE_URL | head -c 50 && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
           )"
 
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
