@@ -9,12 +9,6 @@ export interface AdminSession {
   role: string;
 }
 
-export interface InviteTokenData {
-  email: string;
-  role: string;
-  expiresAt: number;
-}
-
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 const SESSION_SECRET =
   process.env.ADMIN_SESSION_SECRET ||
@@ -104,88 +98,6 @@ function verifyAdminSessionToken(token: string): { adminId: string; timestamp: n
   } catch {
     return null;
   }
-}
-
-/**
- * Verify invite token
- * Token format: email:role:expiresAt:signature (base64url)
- */
-export function verifyInviteToken(token: string): InviteTokenData | null {
-  if (!SESSION_SECRET) {
-    console.warn('[AUTH] ADMIN_SESSION_SECRET is not set');
-    return null;
-  }
-
-  try {
-    // Decode token from base64url
-    const decoded = Buffer.from(token, 'base64url').toString('utf-8');
-    const parts = decoded.split(':');
-
-    if (parts.length !== 4) {
-      console.warn('[AUTH] Invalid token format - expected 4 parts, got', parts.length);
-      return null;
-    }
-
-    const [email, role, expiresAtStr, signature] = parts;
-    
-    // Check expiration before verifying signature (faster)
-    const expiresAt = parseInt(expiresAtStr, 10);
-    if (isNaN(expiresAt)) {
-      console.warn('[AUTH] Invalid expiresAt timestamp:', expiresAtStr);
-      return null;
-    }
-    
-    const now = Date.now();
-    if (now > expiresAt) {
-      console.warn('[AUTH] Invite token expired');
-      return null;
-    }
-    
-    // Verify signature
-    const payload = `${email}:${role}:${expiresAtStr}`;
-    const hmac = createHmac('sha256', SESSION_SECRET);
-    hmac.update(payload);
-    const expectedSignature = hmac.digest('hex');
-    
-    // Use timing-safe comparison
-    if (signature.length !== expectedSignature.length) {
-      console.warn('[AUTH] Signature length mismatch');
-      return null;
-    }
-    
-    const signatureBuffer = Buffer.from(signature, 'hex');
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-    
-    if (!timingSafeEqual(signatureBuffer, expectedBuffer)) {
-      console.warn('[AUTH] Invalid invite token signature');
-      return null;
-    }
-    
-    return { email, role, expiresAt };
-  } catch (error: any) {
-    console.error('[AUTH] Error verifying invite token:', error.message);
-    return null;
-  }
-}
-
-/**
- * Create invite token
- */
-export function createInviteToken(email: string, role: string = 'editor', expiresInDays: number = 7): string {
-  if (!SESSION_SECRET) {
-    throw new Error('ADMIN_SESSION_SECRET is not configured');
-  }
-
-  const expiresAt = Date.now() + (expiresInDays * 24 * 60 * 60 * 1000);
-  const expiresAtStr = expiresAt.toString();
-  const payload = `${email}:${role}:${expiresAtStr}`;
-  
-  const hmac = createHmac('sha256', SESSION_SECRET);
-  hmac.update(payload);
-  const signature = hmac.digest('hex');
-  
-  const token = `${payload}:${signature}`;
-  return Buffer.from(token).toString('base64url');
 }
 
 /**

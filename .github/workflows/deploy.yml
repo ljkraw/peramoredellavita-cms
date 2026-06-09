@@ -65,4 +65,4 @@ jobs:
           SSH_PORT="${PORT:-22}"
           SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
           ssh $SSH_BASE_OPTS "$USER@$HOST" \
-            "cd '$APP_DIR' && npm install && npm run build && pm2 restart peramoredellavita-cms || pm2 start npm --name peramoredellavita-cms -- start"
+            "cd '$APP_DIR' && npm install && npm run db:generate && npm run db:push && npm run build && pm2 restart peramoredellavita-cms || pm2 start npm --name peramoredellavita-cms -- start"

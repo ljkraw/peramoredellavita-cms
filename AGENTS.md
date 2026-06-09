@@ -51,3 +51,8 @@ Panel: http://localhost:3000/admin
 - Port lokalny: 3000
 - Baza: peramoredellavita_cms (własna, izolowana)
 - VPS: TBD
+
+## Onboarding admin/developer
+- Workflow: `.github/workflows/admin-user.yml`
+- Skrypt GH CLI: `npm run admin:user:create:gh -- <email> [role] [username]`
+- Skrypt lokalny/VPS: `npm run admin:user:create -- --email ... --role developer --username ...`

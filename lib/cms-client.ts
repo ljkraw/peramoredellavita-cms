@@ -25,14 +25,14 @@ export async function getContentByPage(slug: string, locale = 'pl'): Promise<Rec
     const res = await fetch(`${CMS_API_URL}/api/content?page=${encodeURIComponent(slug)}&locale=${locale}`, {
       next: { revalidate: 60 },
     });
-    if (!res.ok) return {};
+    if (!res.ok) return {} as Record<string, string>;
     const data = await res.json();
     if (Array.isArray(data)) {
       return Object.fromEntries(data.map((c: { key: string; value: string }) => [c.key, c.value]));
     }
-    return {};
+    return {} as Record<string, string>;
   } catch {
-    return {};
+    return {} as Record<string, string>;
   }
 }
 
@@ -41,14 +41,14 @@ export async function getSettings(): Promise<Record<string, string>> {
     const res = await fetch(`${CMS_API_URL}/api/settings`, {
       next: { revalidate: 300 },
     });
-    if (!res.ok) return {};
+    if (!res.ok) return {} as Record<string, string>;
     const data = await res.json();
     if (Array.isArray(data)) {
       return Object.fromEntries(data.map((s: { key: string; value: string }) => [s.key, s.value]));
     }
-    return {};
+    return {} as Record<string, string>;
   } catch {
-    return {};
+    return {} as Record<string, string>;
   }
 }
 

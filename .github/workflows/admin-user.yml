@@ -1,0 +1,104 @@
+name: Create Or Reset CMS User
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Email użytkownika CMS
+        required: true
+        type: string
+      role:
+        description: Rola użytkownika
+        required: true
+        default: developer
+        type: choice
+        options:
+          - developer
+          - admin
+          - editor
+      username:
+        description: Nazwa użytkownika
+        required: false
+        type: string
+
+jobs:
+  create-user:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          if [ -n "${{ secrets.VPS_KNOWN_HOSTS }}" ]; then
+            echo "${{ secrets.VPS_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          fi
+
+      - name: Sync admin user script to VPS
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT }}
+          APP_DIR: /home/deploy/peramoredellavita-cms
+        run: |
+          set -euo pipefail
+          SSH_PORT="${PORT:-22}"
+          SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
+          RSYNC_RSH="ssh $SSH_BASE_OPTS"
+
+          ssh $SSH_BASE_OPTS "$USER@$HOST" "mkdir -p '$APP_DIR/scripts'"
+
+          rsync -az \
+            -e "$RSYNC_RSH" \
+            ./scripts/create-admin-user.ts "$USER@$HOST:$APP_DIR/scripts/create-admin-user.ts"
+
+      - name: Create or reset user on VPS
+        id: user
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT }}
+          APP_DIR: /home/deploy/peramoredellavita-cms
+          EMAIL: ${{ github.event.inputs.email }}
+          ROLE: ${{ github.event.inputs.role }}
+          USERNAME: ${{ github.event.inputs.username }}
+        run: |
+          set -euo pipefail
+          SSH_PORT="${PORT:-22}"
+          SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
+
+          RESULT="$(
+            ssh $SSH_BASE_OPTS "$USER@$HOST" \
+              "cd '$APP_DIR' && npm install && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
+          )"
+
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        env:
+          RESULT: ${{ steps.user.outputs.result }}
+        run: |
+          EMAIL="$(printf '%s' "$RESULT" | cut -d'|' -f1)"
+          ROLE="$(printf '%s' "$RESULT" | cut -d'|' -f2)"
+          USERNAME="$(printf '%s' "$RESULT" | cut -d'|' -f3)"
+          PASSWORD="$(printf '%s' "$RESULT" | cut -d'|' -f4)"
+          ACTION="$(printf '%s' "$RESULT" | cut -d'|' -f5)"
+          {
+            echo "## CMS user ready"
+            echo
+            echo "Action: \`$ACTION\`"
+            echo "Email: \`$EMAIL\`"
+            echo "Role: \`$ROLE\`"
+            echo "Username: \`$USERNAME\`"
+            echo "Temporary password: \`$PASSWORD\`"
+            echo
+            echo "Login URL: https://peramoredellavita.pl/admin/login"
+          } >> "$GITHUB_STEP_SUMMARY"
