@@ -58,7 +58,8 @@ jobs:
 
           rsync -az \
             -e "$RSYNC_RSH" \
-            ./scripts/create-admin-user.ts "$USER@$HOST:$APP_DIR/scripts/create-admin-user.ts"
+            ./scripts/create-admin-user.ts \
+            "$USER@$HOST:$APP_DIR/scripts/create-admin-user.ts"
 
       - name: Create or reset user on VPS
         id: user
@@ -77,7 +78,7 @@ jobs:
 
           RESULT="$(
             ssh $SSH_BASE_OPTS "$USER@$HOST" \
-              "cd '$APP_DIR' && npm install && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
+              "cd '$APP_DIR' && source .env 2>/dev/null || true && npm install && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
           )"
 
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
