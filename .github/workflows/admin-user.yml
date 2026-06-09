@@ -61,7 +61,7 @@ jobs:
             ./scripts/create-admin-user.ts \
             "$USER@$HOST:$APP_DIR/scripts/create-admin-user.ts"
 
-      - name: Create or reset user on VPS (find .env)
+      - name: Create or reset user on VPS (load .env from u-kubicow-panel)
         id: user
         env:
           HOST: ${{ secrets.VPS_HOST }}
@@ -76,10 +76,10 @@ jobs:
           SSH_PORT="${PORT:-22}"
           SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
 
-          # Find .env file on VPS and use it
+          # Load .env from the known location
           RESULT="$(
             ssh $SSH_BASE_OPTS "$USER@$HOST" \
-              "find /home -name '.env' -type f 2>/dev/null | head -5 && echo '---' && cd '$APP_DIR' && [ -f ../.env ] && source ../.env && echo 'Loaded from parent' || [ -f ~/.env ] && source ~/.env && echo 'Loaded from home' || echo 'No .env found'"
+              "cd '$APP_DIR' && set -a && source ~/u-kubicow-panel/.env 2>/dev/null && set +a && echo 'DATABASE_URL loaded:' && echo \$DATABASE_URL | head -c 50 && npx tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
           )"
 
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
@@ -88,10 +88,19 @@ jobs:
         env:
           RESULT: ${{ steps.user.outputs.result }}
         run: |
+          EMAIL="$(printf '%s' "$RESULT" | cut -d'|' -f1)"
+          ROLE="$(printf '%s' "$RESULT" | cut -d'|' -f2)"
+          USERNAME="$(printf '%s' "$RESULT" | cut -d'|' -f3)"
+          PASSWORD="$(printf '%s' "$RESULT" | cut -d'|' -f4)"
+          ACTION="$(printf '%s' "$RESULT" | cut -d'|' -f5)"
           {
-            echo "## Debug: .env search"
+            echo "## CMS user ready"
             echo
-            echo "\`\`\`"
-            echo "$RESULT"
-            echo "\`\`\`"
+            echo "Action: \`$ACTION\`"
+            echo "Email: \`$EMAIL\`"
+            echo "Role: \`$ROLE\`"
+            echo "Username: \`$USERNAME\`"
+            echo "Temporary password: \`$PASSWORD\`"
+            echo
+            echo "Login URL: https://peramoredellavita.pl/admin/login"
           } >> "$GITHUB_STEP_SUMMARY"
