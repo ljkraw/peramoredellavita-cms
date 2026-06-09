@@ -76,10 +76,17 @@ jobs:
           SSH_PORT="${PORT:-22}"
           SSH_BASE_OPTS="-i $HOME/.ssh/vps_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=18 -o TCPKeepAlive=yes -p $SSH_PORT"
 
-          # Find node binary on VPS and use it directly to run tsx
+          # Use single quotes for remote command to prevent local expansion
           RESULT="$(
-            ssh $SSH_BASE_OPTS "$USER@$HOST" \
-              "cd '$APP_DIR' && set -a && source ~/u-kubicow-panel/.env 2>/dev/null && set +a && NODE_BIN=\$(which node || find /home -name 'node' -type f 2>/dev/null | grep -v node_modules | head -1) && echo \"Node found: \$NODE_BIN\" && export PATH=\"\$(dirname \$NODE_BIN):\$PATH\" && echo 'DATABASE_URL loaded:' && echo \$DATABASE_URL | head -c 50 && \$NODE_BIN ./node_modules/.bin/tsx scripts/create-admin-user.ts --email '$EMAIL' --role '$ROLE' ${USERNAME:+--username \"$USERNAME\"}"
+            ssh $SSH_BASE_OPTS "$USER@$HOST" '
+              cd "'"$APP_DIR"'" &&
+              set -a && source ~/u-kubicow-panel/.env 2>/dev/null && set +a &&
+              NODE_BIN=$(which node || find /home -name "node" -type f 2>/dev/null | grep -v node_modules | head -1) &&
+              echo "Node found: $NODE_BIN" &&
+              export PATH=$(dirname "$NODE_BIN"):$PATH &&
+              echo "DATABASE_URL loaded:" &&
+              echo $DATABASE_URL | head -c 50 &&
+              "$NODE_BIN" ./node_modules/.bin/tsx scripts/create-admin-user.ts --email "'"$EMAIL"'" --role "'"$ROLE"'" '"${USERNAME:+--username \"$USERNAME\"}"'
           )"
 
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
